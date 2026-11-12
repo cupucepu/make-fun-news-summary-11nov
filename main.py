@@ -82,6 +82,11 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    # Bounty gate also requires at least one non-whitespace character.
+    if not text.strip():
+        print("error: summary must contain a non-whitespace character",
+              file=sys.stderr)
+        return 1
 
     # Primary target required by the bounty: /output/entry.txt.
     # Local fallback (only if /output cannot be created/written, e.g. when
@@ -96,6 +101,19 @@ def main() -> int:
         fallback.parent.mkdir(parents=True, exist_ok=True)
         fallback.write_text(text, encoding="utf-8")
         out = fallback
+
+    # Verify what was actually written: a partial, truncated, or
+    # re-encoded write must fail loudly instead of passing silently
+    # as a valid entry.
+    try:
+        written = out.read_bytes()
+    except OSError as exc:
+        print(f"error: cannot verify {out}: {exc}", file=sys.stderr)
+        return 1
+    if written != text.encode("utf-8"):
+        print(f"error: verification failed for {out}: bytes differ",
+              file=sys.stderr)
+        return 1
 
     print(f"wrote {len(text)} characters to {out}")
     return 0
